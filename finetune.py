@@ -21,7 +21,7 @@ from peft import (
     set_peft_model_state_dict,
     PeftModel
 )
-from transformers import LlamaForCausalLM, LlamaTokenizer, BitsAndBytesConfig
+from transformers import LlamaForCausalLM, LlamaTokenizer, BitsAndBytesConfig, AutoConfig
 
 from utils.prompter import Prompter
 
@@ -124,9 +124,11 @@ def train(
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.float16,
     )
-
+    config = AutoConfig.from_pretrained(
+            base_model
+        )
     model = LlamaForCausalLM.from_pretrained(
-        base_model, quantization_config=bnb_config, torch_dtype=torch.float16, device_map=device_map
+        base_model, quantization_config=bnb_config, torch_dtype=torch.float16, device_map=device_map, config=config, low_cpu_mem_usage=True,
     )
 
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
@@ -296,7 +298,7 @@ def train(
                     print(name)
                     fot.write(name+"\n")
     model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
-    
+
     trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     model.save_pretrained(output_dir)
