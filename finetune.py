@@ -21,7 +21,7 @@ from peft import (
     set_peft_model_state_dict,
     PeftModel
 )
-from transformers import LlamaForCausalLM, LlamaTokenizer, BitsAndBytesConfig, AutoConfig
+from transformers import LlamaForCausalLM, LlamaTokenizer, BitsAndBytesConfig
 
 from utils.prompter import Prompter
 
@@ -124,11 +124,8 @@ def train(
         bnb_4bit_quant_type="nf4",
         bnb_4bit_compute_dtype=torch.float16,
     )
-    config = AutoConfig.from_pretrained(
-            base_model
-        )
     model = LlamaForCausalLM.from_pretrained(
-        base_model, quantization_config=bnb_config, torch_dtype=torch.float16, device_map=device_map, config=config, low_cpu_mem_usage=True,
+        base_model, quantization_config=bnb_config, torch_dtype=torch.float16, device_map=device_map, low_cpu_mem_usage=True,
     )
 
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
@@ -193,6 +190,7 @@ def train(
             bias="none",
             task_type="CAUSAL_LM",
         )
+    model = prepare_model_for_kbit_training(model)
     if use_loftq:
         model = PeftModel.from_pretrained(
                 model,
@@ -202,7 +200,6 @@ def train(
                 config=config
             )
     else:
-        model = prepare_model_for_kbit_training(model)
         model = get_peft_model(model, config)
 
     if data_path.endswith(".json") or data_path.endswith(".jsonl"):
