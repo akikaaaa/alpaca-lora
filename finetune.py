@@ -59,6 +59,7 @@ def train(
     prompt_template_name: str = "alpaca",  # The prompt template to use, will default to alpaca.
     load_in_4bit: bool = False,
     use_loftq: bool = False,
+    write_trainable_path: str = "",
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -87,6 +88,7 @@ def train(
             f"prompt template: {prompt_template_name}\n"
             f"load_in_4bit: {load_in_4bit}\n"
             f"use_loftq: {use_loftq}\n"
+            f"write_trainable_path: {write_trainable_path}\n"
         )
     assert (
         base_model
@@ -181,17 +183,7 @@ def train(
                 user_prompt_len:
             ]  # could be sped up, probably
         return tokenized_full_prompt
-    if use_loftq:
-        model = PeftModel.from_pretrained(
-                model,
-                base_model,
-                subfolder="loftq_init",
-                is_trainable=True,
-            )
-    else:
-        model = prepare_model_for_kbit_training(model)
-
-        config = LoraConfig(
+    config = LoraConfig(
             r=lora_r,
             lora_alpha=lora_alpha,
             target_modules=lora_target_modules,
@@ -199,13 +191,28 @@ def train(
             bias="none",
             task_type="CAUSAL_LM",
         )
+    if use_loftq:
+        model = PeftModel.from_pretrained(
+                model,
+                base_model,
+                subfolder="loft_init",
+                is_trainable=True,
+                config=config
+            )
+    else:
+        model = prepare_model_for_kbit_training(model)
         model = get_peft_model(model, config)
-
+    if write_trainable_path != "":
+        with open(write_trainable_path, 'w') as fot:
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    print(name)
+                    fot.write(name+"\n")
     if data_path.endswith(".json") or data_path.endswith(".jsonl"):
         data = load_dataset("json", data_files=data_path)
     else:
         data = load_dataset(data_path)
-
+    
     if resume_from_checkpoint:
         # Check the available weights and load them
         checkpoint_name = os.path.join(
