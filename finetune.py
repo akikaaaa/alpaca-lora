@@ -202,12 +202,7 @@ def train(
     else:
         model = prepare_model_for_kbit_training(model)
         model = get_peft_model(model, config)
-    if write_trainable_path != "":
-        with open(write_trainable_path, 'w') as fot:
-            for name, param in model.named_parameters():
-                if param.requires_grad:
-                    print(name)
-                    fot.write(name+"\n")
+
     if data_path.endswith(".json") or data_path.endswith(".jsonl"):
         data = load_dataset("json", data_files=data_path)
     else:
@@ -233,7 +228,6 @@ def train(
         else:
             print(f"Checkpoint {checkpoint_name} not found")
 
-    model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
 
     if val_set_size > 0:
         train_val = data["train"].train_test_split(
@@ -295,6 +289,14 @@ def train(
     if torch.__version__ >= "2" and sys.platform != "win32":
         model = torch.compile(model)
 
+    if write_trainable_path != "":
+        with open(write_trainable_path, 'w') as fot:
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    print(name)
+                    fot.write(name+"\n")
+    model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
+    
     trainer.train(resume_from_checkpoint=resume_from_checkpoint)
 
     model.save_pretrained(output_dir)
